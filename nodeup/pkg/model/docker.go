@@ -764,7 +764,14 @@ func (b *DockerBuilder) buildContainerOSConfigurationDropIn(c *fi.ModelBuilderCo
 
 // buildSysconfig is responsible for extracting the docker configuration and writing the sysconfig file
 func (b *DockerBuilder) buildSysconfig(c *fi.ModelBuilderContext) error {
-	flagsString, err := flagbuilder.BuildFlags(b.Cluster.Spec.Docker)
+	docker := *b.Cluster.Spec.Docker
+
+	// ContainerOS now sets the storage flag in /etc/docker/daemon.json, and it is an error to set it twice
+	if b.Distribution == distros.DistributionContainerOS {
+		docker.Storage = nil
+	}
+
+	flagsString, err := flagbuilder.BuildFlags(&docker)
 	if err != nil {
 		return fmt.Errorf("error building docker flags: %v", err)
 	}
