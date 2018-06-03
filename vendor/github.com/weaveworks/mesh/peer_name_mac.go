@@ -1,4 +1,4 @@
-// +build peer_name_mac !peer_name_alternative
+// +build peer_name_mac
 
 package mesh
 
