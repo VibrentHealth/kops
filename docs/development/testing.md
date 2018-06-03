@@ -81,6 +81,14 @@ export KOPS_BASE_URL=https://${S3_BUCKET_NAME}.s3.amazonaws.com/kops/dev/
 kops create cluster <clustername> --zones us-east-1b
 ```
 
+```
+export GCS_BUCKET_NAME=kops-dev-${USER}
+make dev-upload-nodeup dev-upload-protokube dev-copy-utils GCS_BUCKET=gs://${GCS_BUCKET_NAME}
+
+export KOPS_BASE_URL=https://${GCS_BUCKET_NAME}.storage.googleapis.com/kops/1.9.0/
+
+```
+
 Then follow the test directions above.
 
 To override the test list for the job, you need to familiar with the

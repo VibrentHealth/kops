@@ -687,7 +687,7 @@ push-kube-discovery:
 bazel-protokube-export:
 	mkdir -p ${BAZELIMAGES}
 	bazel build --action_env=PROTOKUBE_TAG=${PROTOKUBE_TAG} --experimental_platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 //images:protokube.tar
-	cp bazel-bin/images/protokube.tar ${BAZELIMAGES}/protokube.tar
+	cp -fp bazel-bin/images/protokube.tar ${BAZELIMAGES}/protokube.tar
 	gzip --force --fast ${BAZELIMAGES}/protokube.tar
 	(${SHASUMCMD} ${BAZELIMAGES}/protokube.tar.gz | cut -d' ' -f1) > ${BAZELIMAGES}/protokube.tar.gz.sha1
 
@@ -712,3 +712,25 @@ bazel-version-dist: bazel-crossbuild-nodeup bazel-crossbuild-kops bazel-protokub
 .PHONY: bazel-upload
 bazel-upload: bazel-version-dist # Upload kops to S3
 	aws s3 sync --acl public-read ${BAZELUPLOAD}/ ${S3_BUCKET}
+
+.PHONY: bazel-upload-gcs-nodeup
+dev-upload-nodeup: bazel-crossbuild-nodeup # Upload kops to GCS
+	mkdir -p ${BAZELUPLOAD}/kops/${VERSION}/linux/amd64/
+	cp -fp bazel-bin/cmd/nodeup/linux_amd64_pure_stripped/nodeup ${BAZELUPLOAD}/kops/${VERSION}/linux/amd64/nodeup
+	(${SHASUMCMD} ${BAZELUPLOAD}/kops/${VERSION}/linux/amd64/nodeup | cut -d' ' -f1) > ${BAZELUPLOAD}/kops/${VERSION}/linux/amd64/nodeup.sha1
+	gsutil -h "Cache-Control:private,max-age=0" rsync -r -a public-read ${BAZELUPLOAD}/ ${GCS_BUCKET}
+
+.PHONY: bazel-upload-gcs-protokube
+dev-upload-protokube: bazel-protokube-export # Upload kops to GCS
+	mkdir -p ${BAZELUPLOAD}/kops/${VERSION}/images/
+	cp -fp ${BAZELIMAGES}/protokube.tar.gz ${BAZELUPLOAD}/kops/${VERSION}/images/protokube.tar.gz
+	cp -fp ${BAZELIMAGES}/protokube.tar.gz.sha1 ${BAZELUPLOAD}/kops/${VERSION}/images/protokube.tar.gz.sha1
+	gsutil -h "Cache-Control:private,max-age=0" rsync -r -a public-read ${BAZELUPLOAD}/ ${GCS_BUCKET}
+
+.PHONE: dev-copy-utils
+dev-copy-utils:
+	mkdir -p ${BAZELUPLOAD}/kops/${VERSION}/linux/amd64/
+	cd ${BAZELUPLOAD}/kops/${VERSION}/linux/amd64/; wget -N https://kubeupv2.s3.amazonaws.com/kops/1.9.1/linux/amd64/utils.tar.gz
+	cd ${BAZELUPLOAD}/kops/${VERSION}/linux/amd64/; wget -N https://kubeupv2.s3.amazonaws.com/kops/1.9.1/linux/amd64/utils.tar.gz.sha1
+	gsutil rsync -r -h "Cache-Control:private,max-age=0" -a public-read ${BAZELUPLOAD}/ ${GCS_BUCKET}
+
