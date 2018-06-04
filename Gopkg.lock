@@ -562,6 +562,8 @@
 [[projects]]
   name = "github.com/kubernetes-incubator/apiserver-builder"
   packages = [
+    "cmd/apiregister-gen",
+    "cmd/apiregister-gen/generators",
     "cmd/apiserver-boot",
     "cmd/apiserver-boot/boot/build",
     "cmd/apiserver-boot/boot/create",
@@ -1682,6 +1684,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3d38ca7b82642506ef66da3ad14ca8c4c21dc1946a4e50e26764ef97f1f8d36c"
+  inputs-digest = "d07cc23213c4ff66feb2cf7bfcda199632db21b0d15ae6165158910d01761eff"
   solver-name = "gps-cdcl"
   solver-version = 1
