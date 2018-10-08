@@ -26,6 +26,7 @@ import (
 	api "k8s.io/kops/pkg/apis/kops"
 	"k8s.io/kops/pkg/apis/kops/util"
 	"k8s.io/kops/pkg/assets"
+	"k8s.io/kops/util/pkg/hashing"
 )
 
 func usesCNI(c *api.Cluster) bool {
@@ -123,12 +124,12 @@ const (
 	ENV_VAR_CNI_ASSET_HASH_STRING = "CNI_ASSET_HASH_STRING"
 )
 
-func findCNIAssets(c *api.Cluster, assetBuilder *assets.AssetBuilder) (*url.URL, string, error) {
+func findCNIAssets(c *api.Cluster, assetBuilder *assets.AssetBuilder) (*assets.FileAsset, error) {
 
 	if cniVersionURL := os.Getenv(ENV_VAR_CNI_VERSION_URL); cniVersionURL != "" {
 		u, err := url.Parse(cniVersionURL)
 		if err != nil {
-			return nil, "", fmt.Errorf("unable to parse %q as a URL: %v", cniVersionURL, err)
+			return nil, fmt.Errorf("unable to parse %q as a URL: %v", cniVersionURL, err)
 		}
 
 		glog.Infof("Using CNI asset version %q, as set in %s", cniVersionURL, ENV_VAR_CNI_VERSION_URL)
@@ -137,15 +138,19 @@ func findCNIAssets(c *api.Cluster, assetBuilder *assets.AssetBuilder) (*url.URL,
 
 			glog.Infof("Using CNI asset hash %q, as set in %s", cniAssetHashString, ENV_VAR_CNI_ASSET_HASH_STRING)
 
-			return u, cniAssetHashString, nil
+			cniAssetHash, err := hashing.FromString(cniAssetHashString)
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse hash %s=%s", ENV_VAR_CNI_ASSET_HASH_STRING, cniAssetHashString)
+			}
+			return assetBuilder.BuildAssetForURLKnownHash(u, *cniAssetHash)
 		} else {
-			return u, "", nil
+			return assetBuilder.BuildAssetForURL(u)
 		}
 	}
 
 	sv, err := util.ParseKubernetesVersion(c.Spec.KubernetesVersion)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to lookup kubernetes version: %v", err)
+		return nil, fmt.Errorf("failed to lookup kubernetes version: %v", err)
 	}
 
 	sv.Pre = nil
@@ -168,13 +173,18 @@ func findCNIAssets(c *api.Cluster, assetBuilder *assets.AssetBuilder) (*url.URL,
 
 	u, err := url.Parse(cniAsset)
 	if err != nil {
-		return nil, "", nil
+		return nil, nil
 	}
 
-	u, err = assetBuilder.RemapFileAndSHAValue(u, cniAssetHash)
+	hash, err := hashing.FromString(cniAssetHash)
 	if err != nil {
-		return nil, "", err
+		return nil, fmt.Errorf("cannot parse CNI asset hash %q", cniAssetHash)
 	}
 
-	return u, cniAssetHash, nil
+	asset, err := assetBuilder.BuildAssetForURLKnownHash(u, *hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return asset, nil
 }

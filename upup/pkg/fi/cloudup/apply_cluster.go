@@ -1063,20 +1063,20 @@ func (c *ApplyClusterCmd) AddFileAssets(assetBuilder *assets.AssetBuilder) error
 		}
 		k.Path = path.Join(k.Path, a)
 
-		u, hash, err := assetBuilder.RemapFileAndSHA(k)
+		asset, err := assetBuilder.BuildAssetForURL(k)
 		if err != nil {
 			return err
 		}
-		c.Assets = append(c.Assets, hash.Hex()+"@"+u.String())
+		c.Assets = append(c.Assets, asset.Hash.Hex()+"@"+asset.URL.String())
 	}
 
 	if usesCNI(c.Cluster) {
-		cniAsset, cniAssetHashString, err := findCNIAssets(c.Cluster, assetBuilder)
+		cniAsset, err := findCNIAssets(c.Cluster, assetBuilder)
 		if err != nil {
 			return err
 		}
 
-		c.Assets = append(c.Assets, cniAssetHashString+"@"+cniAsset.String())
+		c.Assets = append(c.Assets, cniAsset.Hash.Hex()+"@"+cniAsset.URL.String())
 	}
 
 	// TODO figure out if we can only do this for CoreOS only and GCE Container OS
@@ -1085,24 +1085,24 @@ func (c *ApplyClusterCmd) AddFileAssets(assetBuilder *assets.AssetBuilder) error
 	// Most distros will have there own socat and conntrack binary.
 	// Container operating systems like CoreOS need to have socat and conntrack added to them.
 	{
-		utilsLocation, hash, err := KopsFileUrl("linux/amd64/utils.tar.gz", assetBuilder)
+		utilsAsset, err := KopsAsset("linux/amd64/utils.tar.gz", assetBuilder)
 		if err != nil {
 			return err
 		}
-		c.Assets = append(c.Assets, hash.Hex()+"@"+utilsLocation.String())
+		c.Assets = append(c.Assets, utilsAsset.Hash.Hex()+"@"+utilsAsset.URL.String())
 	}
 
-	n, hash, err := NodeUpLocation(assetBuilder)
+	nodeup, err := NodeupAsset(assetBuilder)
 	if err != nil {
 		return err
 	}
-	c.NodeUpSource = n.String()
-	c.NodeUpHash = hash.Hex()
+	c.NodeUpSource = nodeup.URL.String()
+	c.NodeUpHash = nodeup.Hash.Hex()
 
 	// Explicitly add the protokube image,
 	// otherwise when the Target is DryRun this asset is not added
 	// Is there a better way to call this?
-	_, _, err = ProtokubeImageSource(assetBuilder)
+	_, err = ProtokubeImageAsset(assetBuilder)
 	if err != nil {
 		return err
 	}
@@ -1203,30 +1203,31 @@ func (c *ApplyClusterCmd) BuildNodeUpConfig(assetBuilder *assets.AssetBuilder, i
 
 			baseURL.Path = path.Join(baseURL.Path, "/bin/linux/amd64/", component+".tar")
 
-			u, hash, err := assetBuilder.RemapFileAndSHA(baseURL)
+			asset, err := assetBuilder.BuildAssetForURL(baseURL)
 			if err != nil {
 				return nil, err
 			}
 
 			image := &nodeup.Image{
-				Source: u.String(),
-				Hash:   hash.Hex(),
+				Source: asset.URL.String(),
+				Hash:   asset.Hash.Hex(),
 			}
 			images = append(images, image)
 		}
 	}
 
 	{
-		location, hash, err := ProtokubeImageSource(assetBuilder)
+		protokubeAsset, err := ProtokubeImageAsset(assetBuilder)
 		if err != nil {
 			return nil, err
 		}
 
 		config.ProtokubeImage = &nodeup.Image{
 			Name:   kopsbase.DefaultProtokubeImageName(),
-			Source: location.String(),
-			Hash:   hash.Hex(),
+			Source: protokubeAsset.URL.String(),
+			Hash:   protokubeAsset.Hash.Hex(),
 		}
+
 	}
 
 	if role == kops.InstanceGroupRoleMaster {
